@@ -1,0 +1,76 @@
+# ─────────────────────────────────────────────────────────
+# PECUS — Orquestación completa (PostgreSQL + API + Web)
+# Uso:  docker compose up --build
+# ─────────────────────────────────────────────────────────
+services:
+  # ── Base de datos ──────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: pecus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pecus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pecus_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-pecus}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pecus_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pecus} -d ${POSTGRES_DB:-pecus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - pecus-net
+
+  # ── API (NestJS + Prisma) ──────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: pecus-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 4000
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-pecus}:${POSTGRES_PASSWORD:-pecus_secret}@postgres:5432/${POSTGRES_DB:-pecus}?schema=public"
+      CORS_ORIGIN: "http://localhost:3000"
+      IOT_SIMULATION_ENABLED: "true"
+      IOT_SIMULATION_INTERVAL_MS: "8000"
+      # Ejecuta migraciones + seed (100 vacas) la primera vez que arranca.
+      SEED_ON_START: "true"
+    ports:
+      - "4000:4000"
+    networks:
+      - pecus-net
+
+  # ── Web (Next.js 15) ───────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # El valor público se "hornea" en build; apunta al API expuesto en host.
+        NEXT_PUBLIC_API_URL: "http://localhost:4000"
+    container_name: pecus-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: "http://localhost:4000"
+    ports:
+      - "3000:3000"
+    networks:
+      - pecus-net
+
+volumes:
+  pecus_pgdata:
+
+networks:
+  pecus-net:
+    driver: bridge

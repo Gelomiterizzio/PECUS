@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+# Cancela ejecuciones previas del mismo ref para ahorrar minutos.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9.12.0"
+
+jobs:
+  # ── 1. Lint (ESLint estricto, 0 warnings) ──────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - name: Generar cliente Prisma (necesario para tipos del API)
+        run: pnpm db:generate
+      - name: ESLint
+        run: pnpm lint
+
+  # ── 2. Unit / integration tests ────────────────────────
+  test:
+    name: Unit & Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm db:generate
+      - name: Jest (unit + integración)
+        run: pnpm test
+
+  # ── 3. Build (frontend + backend) ──────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm db:generate
+      - name: Build monorepo (turbo)
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  # ── 4. E2E backend (con PostgreSQL real) ───────────────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [build]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pecus
+          POSTGRES_PASSWORD: pecus_secret
+          POSTGRES_DB: pecus_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pecus -d pecus_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: "postgresql://pecus:pecus_secret@localhost:5432/pecus_test?schema=public"
+      CORS_ORIGIN: "http://localhost:3000"
+      IOT_SIMULATION_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm db:generate
+      - name: Aplicar esquema a la BD de pruebas
+        run: pnpm --filter @pecus/api prisma:push
+      - name: Tests E2E (Supertest sobre Nest)
+        run: pnpm --filter @pecus/api test:e2e
+
+  # ── 5. E2E frontend (Playwright) ───────────────────────
+  playwright:
+    name: Playwright (Frontend E2E)
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
+      - name: Instalar navegadores de Playwright
+        run: pnpm --filter @pecus/web exec playwright install --with-deps chromium
+      - name: Ejecutar Playwright
+        run: pnpm --filter @pecus/web test:e2e
+        env:
+          # El frontend degrada a datos mock si el API no responde,
+          # por lo que el smoke test funciona sin backend en CI.
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+          NEXT_TELEMETRY_DISABLED: "1"

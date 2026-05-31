@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 150 30% 99%;
+    --foreground: 158 32% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 158 32% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 158 32% 10%;
+
+    /* Verde agrícola moderno */
+    --primary: 142 72% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 150 18% 95%;
+    --secondary-foreground: 158 30% 16%;
+
+    --accent: 150 20% 94%;
+    --accent-foreground: 158 30% 16%;
+
+    /* Azul tecnológico */
+    --tech: 214 95% 50%;
+    --tech-foreground: 0 0% 100%;
+
+    --muted: 150 16% 95%;
+    --muted-foreground: 156 10% 40%;
+
+    --destructive: 0 78% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 36 96% 48%;
+    --warning-foreground: 36 100% 8%;
+
+    --success: 142 70% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 150 16% 89%;
+    --input: 150 16% 89%;
+    --ring: 142 72% 32%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 160 32% 4%;
+    --foreground: 150 14% 93%;
+
+    --card: 159 30% 6%;
+    --card-foreground: 150 14% 93%;
+
+    --popover: 159 32% 5%;
+    --popover-foreground: 150 14% 93%;
+
+    --primary: 142 64% 45%;
+    --primary-foreground: 160 40% 4%;
+
+    --secondary: 158 22% 11%;
+    --secondary-foreground: 150 14% 93%;
+
+    --accent: 158 24% 12%;
+    --accent-foreground: 150 14% 93%;
+
+    --tech: 210 92% 60%;
+    --tech-foreground: 210 100% 6%;
+
+    --muted: 158 20% 11%;
+    --muted-foreground: 153 10% 60%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 38 95% 55%;
+    --warning-foreground: 36 100% 8%;
+
+    --success: 142 64% 45%;
+    --success-foreground: 160 40% 4%;
+
+    --border: 156 22% 14%;
+    --input: 156 22% 16%;
+    --ring: 142 64% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+/* Utilidades de atmósfera */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .bg-grid {
+    background-image: var(--bg-grid, none);
+    background-size: 32px 32px;
+  }
+  .glass {
+    @apply bg-card/70 backdrop-blur-xl;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-tech bg-clip-text text-transparent;
+  }
+  .mesh-bg {
+    background-image:
+      radial-gradient(at 0% 0%, hsl(var(--primary) / 0.10) 0px, transparent 50%),
+      radial-gradient(at 98% 2%, hsl(var(--tech) / 0.10) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, hsl(var(--primary) / 0.06) 0px, transparent 50%);
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5;
+  }
+}
+
+/* Scrollbar refinada */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+  background-clip: padding-box;
+}
+
+/* Recharts: heredar tipografía y quitar outline */
+.recharts-wrapper,
+.recharts-surface {
+  outline: none !important;
+}
+.recharts-default-tooltip {
+  border-radius: var(--radius) !important;
+}

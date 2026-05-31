@@ -1,0 +1,16 @@
+{
+  "name": "@pecus/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "echo \"shared: no lint\"",
+    "build": "echo \"shared: source-only package\"",
+    "test": "echo \"shared: no tests\"",
+    "clean": "echo clean"
+  },
+  "dependencies": {
+    "@pecus/types": "workspace:*"
+  }
+}

@@ -1,0 +1,121 @@
+// PECUS — Esquema de base de datos (PostgreSQL + Prisma)
+// Modela el rebaño y deja preparadas las relaciones IoT (Sensor, Telemetry, Alert).
+
+generator client {
+  provider      = "prisma-client-js"
+  // "native" cubre el desarrollo local; el target musl/openssl-3 es para Docker (Alpine).
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CowType {
+  DAIRY
+  BEEF
+}
+
+enum FeedingStatus {
+  FED
+  NOT_FED
+}
+
+enum ReproductiveStatus {
+  NOT_IN_HEAT
+  IN_HEAT
+  PREGNANT
+}
+
+enum SensorType {
+  RFID
+  GPS
+  TEMPERATURE
+  ACTIVITY
+  HEART_RATE
+}
+
+enum AlertType {
+  HIGH_TEMPERATURE
+  NOT_FED
+  POSSIBLE_HEAT
+  SENSOR_DISCONNECTED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model Cow {
+  id                  String             @id @default(cuid())
+  codigoVaca          String             @unique @map("codigo_vaca")
+  nombre              String
+  tipoVaca            CowType            @map("tipo_vaca")
+  estadoAlimentacion  FeedingStatus      @default(NOT_FED) @map("estado_alimentacion")
+  ultimaAlimentacion  DateTime?          @map("ultima_alimentacion")
+  estadoReproductivo  ReproductiveStatus @default(NOT_IN_HEAT) @map("estado_reproductivo")
+  temperatura         Float              @default(38.6) @map("temperatura")
+  fechaRegistro       DateTime           @default(now()) @map("fecha_registro")
+  fechaActualizacion  DateTime           @updatedAt @map("fecha_actualizacion")
+
+  sensors     Sensor[]
+  telemetry   Telemetry[]
+  alerts      Alert[]
+
+  @@index([tipoVaca])
+  @@index([estadoAlimentacion])
+  @@index([estadoReproductivo])
+  @@index([temperatura])
+  @@map("cows")
+}
+
+model Sensor {
+  id        String     @id @default(cuid())
+  cow       Cow        @relation(fields: [cowId], references: [id], onDelete: Cascade)
+  cowId     String     @map("cow_id")
+  type      SensorType
+  serial    String     @unique
+  connected Boolean    @default(true)
+  battery   Int        @default(100)
+  lastSeen  DateTime?  @map("last_seen")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  telemetry Telemetry[]
+
+  @@index([cowId])
+  @@map("sensors")
+}
+
+model Telemetry {
+  id         String     @id @default(cuid())
+  cow        Cow        @relation(fields: [cowId], references: [id], onDelete: Cascade)
+  cowId      String     @map("cow_id")
+  sensor     Sensor?    @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+  sensorId   String?    @map("sensor_id")
+  sensorType SensorType @map("sensor_type")
+  value      Float
+  unit       String
+  recordedAt DateTime   @default(now()) @map("recorded_at")
+
+  @@index([cowId])
+  @@index([recordedAt])
+  @@map("telemetry")
+}
+
+model Alert {
+  id        String        @id @default(cuid())
+  cow       Cow?          @relation(fields: [cowId], references: [id], onDelete: Cascade)
+  cowId     String?       @map("cow_id")
+  type      AlertType
+  severity  AlertSeverity @default(WARNING)
+  message   String
+  resolved  Boolean       @default(false)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([cowId])
+  @@index([resolved])
+  @@map("alerts")
+}
